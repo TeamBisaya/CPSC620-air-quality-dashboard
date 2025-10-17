@@ -38,15 +38,20 @@ def load_data(file_path="data/AirQualityUCI.csv"):
 def clean_data(df):
     """
     Clean the air quality dataset by handling missing values and data types.
-    
     Args:
         df (pd.DataFrame): Raw dataset
-        
+
     Returns:
-        pd.DataFrame: Cleaned dataset
+        pd.DataFrame: Cleaned dataset, or None if input is None
     """
+    # Guard clause: Check for invalid input at the beginning
     if df is None:
         return None
+
+    # FIX: Treat -200 as a missing value (NaN)
+    df.replace(-200, pd.NA, inplace=True)
+
+    return df
     
     # Create a copy to avoid modifying the original
     df_clean = df.copy()
