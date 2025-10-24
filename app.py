@@ -146,3 +146,36 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# --- Dynamic Visualization Section ---
+st.header('Pollutant Trend Explorer')
+
+# 1. ADD A SIDEBAR SELECTOR
+pollutant_options = [col for col in df_cleaned.columns if col not in ['T', 'RH', 'AH']]
+selected_pollutant = st.sidebar.selectbox(
+    'Select a Pollutant to Display',
+    options=pollutant_options,
+    index=0  # Defaults to 'CO(GT)'
+)
+
+# 2. ADD A DATE RANGE SLIDER
+st.sidebar.subheader("Filter by Date")
+date_range = st.sidebar.date_input(
+    "Select date range",
+    value=(df_cleaned.index.min(), df_cleaned.index.max()),
+    min_value=df_cleaned.index.min(),
+    max_value=df_cleaned.index.max()
+)
+
+# 3. FILTER THE DATA based on date range
+start_date = pd.to_datetime(date_range[0])
+end_date = pd.to_datetime(date_range[1])
+df_filtered = df_cleaned.loc[start_date:end_date]
+
+
+# 4. RESAMPLE AND PLOT DYNAMICALLY
+st.write(f"Showing daily average for: **{selected_pollutant}**")
+df_daily_dynamic = df_filtered[[selected_pollutant]].resample('D').mean()
+
+# 5. USE NATIVE st.line_chart (it's interactive!)
+st.line_chart(df_daily_dynamic)
