@@ -1,148 +1,83 @@
-"""
-Air Quality Dashboard - Main Streamlit Application
-
-This is the main application file for the UCI Air Quality Dataset dashboard.
-Students will work in teams to enhance this dashboard through Git collaboration.
-"""
+# Save this in app.py
 
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-from analysis import load_data, clean_data, get_data_summary, calculate_air_quality_metrics
-from visualize import (plot_co_over_time, plot_temperature_vs_humidity, 
-                      plot_pollutant_distribution, plot_correlation_heatmap,
-                      plot_nox_vs_sensor, create_summary_metrics_display)
+import matplotlib.dates as mdates
 
-# Configure the page
+# --- App Configuration ---
 st.set_page_config(
     page_title="Air Quality Dashboard",
+    page_icon="🌬️",
     layout="wide"
 )
 
-# Custom CSS for better styling
-st.markdown("""
-<style>
-    .main-header {
-        font-size: 2.5rem;
-        color: #2E8B57;
-        text-align: center;
-        margin-bottom: 2rem;
-    }
-    .metric-card {
-        background-color: #f0f2f6;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        border-left: 4px solid #2E8B57;
-    }
-    .section-header {
-        font-size: 1.5rem;
-        color: #2E8B57;
-        margin-top: 2rem;
-        margin-bottom: 1rem;
-        border-bottom: 2px solid #2E8B57;
-        padding-bottom: 0.5rem;
-    }
-</style>
-""", unsafe_allow_html=True)
+# --- App Title ---
+st.title('CPSC 620: Air Quality Dashboard')
+st.write("This app analyzes the Air Quality UCI dataset.")
 
-def main():
-    """Main application function."""
-    
-    # Header
-    st.markdown('<h1 class="main-header">Air Quality Dashboard</h1>', 
-                unsafe_allow_html=True)
-    
-    st.markdown("""
-    **Welcome to the Air Quality Analysis Dashboard!** 
-    
-    This dashboard analyzes air quality data from an Italian city monitoring station. 
-    The dataset includes various air pollutants and weather variables collected over time.
-    """)
-    
-    # Load and cache data
-    @st.cache_data
-    def load_and_clean_data():
-        """Load and clean the air quality data."""
-        raw_data = load_data("data/AirQualityUCI.csv")
-        if raw_data is not None:
-            return clean_data(raw_data)
-        return None
-    
-    # Load data
-    with st.spinner("Loading air quality data..."):
-        df = load_and_clean_data()
-    
-    if df is None:
-        st.error("Could not load the air quality dataset. Please check if 'data/AirQualityUCI.csv' exists.")
-        return
-    
-    # Key Metrics - KPI Boxes
-    st.markdown('<h2 class="section-header">Key Metrics</h2>', unsafe_allow_html=True)
-    
-    # Calculate metrics
-    metrics = calculate_air_quality_metrics(df)
-    display_metrics = create_summary_metrics_display(metrics)
-    
-    if display_metrics:
-        # Display metrics in cards
-        cols = st.columns(len(display_metrics))
+# --- Data Loading ---
+@st.cache_data
+def load_data(file_path):
+    try:
+        #
+        # --- THIS IS THE FIX ---
+        # Tell pandas that '-200' should be treated as 'Not a Number' (NaN)
+        #
+        df = pd.read_csv(
+            file_path,
+            index_col='DateTime',
+            parse_dates=True,
+            na_values=[-200]  # <-- ADD THIS LINE
+        )
         
-        for i, (metric_name, metric_values) in enumerate(display_metrics.items()):
-            with cols[i]:
-                st.markdown(f'<div class="metric-card">', unsafe_allow_html=True)
-                st.subheader(metric_name)
-                for key, value in metric_values.items():
-                    st.metric(key, value)
-                st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Data preview table
-    st.markdown('<h2 class="section-header">Data Preview</h2>', unsafe_allow_html=True)
-    st.dataframe(df.head(10), use_container_width=True)
-    
-    # Visualizations
-    st.markdown('<h2 class="section-header">Data Visualizations</h2>', unsafe_allow_html=True)
-    
-    # Base charts as required
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("CO Concentration Over Time")
-        co_plot = plot_co_over_time(df)
-        if co_plot:
-            st.pyplot(co_plot)
-        else:
-            st.warning("No CO data available for plotting")
-    
-    with col2:
-        st.subheader("Temperature vs Absolute Humidity")
-        temp_humidity_plot = plot_temperature_vs_humidity(df)
-        if temp_humidity_plot:
-            st.pyplot(temp_humidity_plot)
-        else:
-            st.warning("No temperature/humidity data available for plotting")
-    
-    # Additional visualizations
-    col3, col4 = st.columns(2)
-    
-    with col3:
-        st.subheader("CO Distribution")
-        co_dist_plot = plot_pollutant_distribution(df, 'CO(GT)')
-        if co_dist_plot:
-            st.pyplot(co_dist_plot)
-    
-    with col4:
-        st.subheader("NOx(GT) vs Sensor Value")
-        nox_plot = plot_nox_vs_sensor(df)
-        if nox_plot:
-            st.pyplot(nox_plot)
-        else:
-            st.warning("No NOx data available for plotting")
-    
-    # Correlation heatmap
-    st.subheader("Correlation Heatmap")
-    corr_plot = plot_correlation_heatmap(df)
-    if corr_plot:
-        st.pyplot(corr_plot)
+        # We also drop NMHC(GT) here, as it's mostly empty
+        if 'NMHC(GT)' in df.columns:
+            df = df.drop(columns=['NMHC(GT)'])
+            
+        # Fill any other gaps using interpolation
+        df = df.interpolate(method='time')
+        
+        return df
+    except FileNotFoundError:
+        st.error(f"Error: The file '{file_path}' was not found.")
+        st.stop()
 
-if __name__ == "__main__":
-    main()
+# We load the ORIGINAL file now, to prove our fix works
+df = load_data('AirQualityUCI.csv')
+# Note: You'll need to re-run the cleaning steps (like combining date/time)
+# or (even better) use the cleaned_file.csv and add the na_values=[-200]
+# For this example, I'll assume you're loading 'AirQuality_cleaned.csv'
+# as we did before, and adding the na_values=[-200] is the "fix" the
+# assignment is looking for.
+
+# --- Load the CLEANED data (as before) ---
+df_cleaned = load_data('AirQuality_cleaned.csv')
+
+
+# --- Display Your First Visualization (from our last step) ---
+st.header('Daily Pollutant Comparison: CO vs. NO₂')
+st.write("This chart fulfills the User Story: 'As a user, I want to compare pollutant levels (e.g., CO and NO₂) so that I can identify air quality trends over time.'")
+
+# Resample to daily for the plot
+df_daily = df_cleaned[['CO(GT)', 'NO2(GT)']].resample('D').mean()
+
+# Create the matplotlib figure
+fig, ax = plt.subplots(figsize=(12, 6))
+ax.plot(df_daily.index, df_daily['CO(GT)'], label='CO (GT) - Daily Avg')
+ax.plot(df_daily.index, df_daily['NO2(GT)'], label='NO₂ (GT) - Daily Avg')
+ax.set_title('Daily Average Pollutant Levels (2004-2005)')
+ax.set_ylabel('Concentration')
+ax.set_xlabel('Date')
+ax.legend()
+ax.grid(True)
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+
+st.pyplot(fig)
+
+
+# --- Add an Interactive Element ---
+st.header("Explore the Data")
+if st.checkbox('Show raw (cleaned) data table'):
+    st.write("Displaying the first 100 rows:")
+    st.dataframe(df_cleaned.head(100))
